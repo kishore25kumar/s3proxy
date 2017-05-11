@@ -59,6 +59,7 @@ import javax.xml.stream.XMLStreamWriter;
 
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
@@ -80,7 +81,12 @@ import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
 import com.google.common.net.PercentEscaper;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import org.apache.commons.fileupload.MultipartStream;
+import org.eclipse.jetty.continuation.Continuation;
+import org.eclipse.jetty.continuation.ContinuationSupport;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.KeyNotFoundException;
 import org.jclouds.blobstore.domain.Blob;
@@ -1634,7 +1640,7 @@ public class S3ProxyHandler {
     }
 
     private static void handlePutBlob(HttpServletRequest request,
-            HttpServletResponse response, InputStream is, BlobStore blobStore,
+            final HttpServletResponse response, InputStream is, BlobStore blobStore,
             String containerName, String blobName)
             throws IOException, S3Exception {
         // Flag headers present since HttpServletResponse.getHeader returns
@@ -1717,8 +1723,30 @@ public class S3ProxyHandler {
                 builder = builder.contentMD5(contentMD5);
             }
 
-            eTag = blobStore.putBlob(containerName, builder.build(),
-                    options);
+//            eTag = blobStore.putBlob(containerName, builder.build(),
+//                    options);
+            final Continuation continuation = ContinuationSupport.getContinuation(request);
+            final BlobBuilder.PayloadBlobBuilder buildFinal = builder;
+            ListenableFuture<String> future = blobStore.getContext().getAsyncBlobStore()
+                    .get().putBlob(containerName, buildFinal.build());
+
+            Futures.addCallback(future, new FutureCallback<String>() {
+                @Override
+                public void onSuccess(String result) {
+                    response.addHeader(HttpHeaders.ETAG,maybeQuoteETag(result));
+                    continuation.complete();
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    try {
+                        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                    } catch (IOException e) {
+                        return;
+                    }
+                }
+            });
+            continuation.suspend();
         } catch (HttpResponseException hre) {
             HttpResponse hr = hre.getResponse();
             if (hr == null) {
@@ -1736,8 +1764,6 @@ public class S3ProxyHandler {
             }
             return;
         }
-
-        response.addHeader(HttpHeaders.ETAG, maybeQuoteETag(eTag));
     }
 
     private void handlePostBlob(HttpServletRequest request,
