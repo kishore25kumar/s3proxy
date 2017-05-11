@@ -73,7 +73,8 @@ public final class S3Proxy {
                 !Strings.isNullOrEmpty(builder.credential),
                 "Must provide both identity and credential");
 
-        server = new Server();
+        server = new Server(new QueuedThreadPool(
+                Integer.parseInt(System.getenv("JETTY_THREADS"))));
 
         if (builder.servicePath != null && !builder.servicePath.isEmpty()) {
             ContextHandler context = new ContextHandler();
