@@ -36,9 +36,10 @@ import com.google.inject.Module;
 
 import org.jclouds.Constants;
 import org.jclouds.ContextBuilder;
-import org.jclouds.JcloudsVersion;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.BlobStoreContext;
+import org.jclouds.http.apachehc
+        .config.ApacheHCHttpCommandExecutorServiceModule;
 import org.jclouds.location.reference.LocationConstants;
 import org.jclouds.logging.slf4j.config.SLF4JLoggingModule;
 import org.jclouds.openstack.swift.v1.blobstore.RegionScopedBlobStoreContext;
@@ -295,16 +296,17 @@ public final class Main {
                     Constants.PROPERTY_CREDENTIAL + "\n");
         }
 
-        properties.setProperty(Constants.PROPERTY_USER_AGENT,
-                String.format("s3proxy/%s jclouds/%s java/%s",
-                        Main.class.getPackage().getImplementationVersion(),
-                        JcloudsVersion.get(),
-                        System.getProperty("java.version")));
+//        properties.setProperty(Constants.PROPERTY_USER_AGENT,
+//                String.format("s3proxy/%s jclouds/%s java/%s",
+//                        Main.class.getPackage().getImplementationVersion(),
+//                        JcloudsVersion.get(),
+//                        System.getProperty("java.version")));
 
         ContextBuilder builder = ContextBuilder
                 .newBuilder(provider)
                 .credentials(identity, credential)
-                .modules(ImmutableList.<Module>of(new SLF4JLoggingModule()))
+                .modules(ImmutableList.<Module>of(new SLF4JLoggingModule(),
+                        new ApacheHCHttpCommandExecutorServiceModule()))
                 .overrides(properties);
         if (endpoint != null) {
             builder = builder.endpoint(endpoint);

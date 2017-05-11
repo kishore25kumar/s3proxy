@@ -2020,7 +2020,7 @@ public class S3ProxyHandler {
                     throw new S3Exception(S3ErrorCode.INVALID_PART);
                 }
                 parts.add(MultipartPart.create(entry.getKey(),
-                        partSize, part.partETag(), part.lastModified()));
+                        partSize, part.partETag()));
             }
         }
 
@@ -2111,7 +2111,7 @@ public class S3ProxyHandler {
                 String eTag = "";  // TODO: bogus value
                 Date lastModified = null;  // TODO: bogus value
                 parts.add(MultipartPart.create(entry.getKey(),
-                        entry.getValue(), eTag, lastModified));
+                        entry.getValue(), eTag));
             }
         } else {
             parts = blobStore.listMultipartUpload(mpu);
@@ -2152,11 +2152,11 @@ public class S3ProxyHandler {
                 writeSimpleElement(xml, "PartNumber", String.valueOf(
                         part.partNumber()));
 
-                Date lastModified = part.lastModified();
-                if (lastModified != null) {
-                    writeSimpleElement(xml, "LastModified",
-                            formatDate(lastModified));
-                }
+//                Date lastModified = part.lastModified();
+//                if (lastModified != null) {
+//                    writeSimpleElement(xml, "LastModified",
+//                            formatDate(lastModified));
+//                }
 
                 String eTag = part.partETag();
                 if (eTag != null) {

@@ -166,8 +166,7 @@ final class NullBlobStore extends ForwardingBlobStore {
 
         MultipartPart part = super.uploadMultipartPart(mpu, partNumber,
                 newPayload);
-        return MultipartPart.create(part.partNumber(), length, part.partETag(),
-                part.lastModified());
+        return MultipartPart.create(part.partNumber(), length, part.partETag());
     }
 
     // Cannot read parts to get the embedded size so return zero instead.
@@ -176,7 +175,7 @@ final class NullBlobStore extends ForwardingBlobStore {
         ImmutableList.Builder<MultipartPart> builder = ImmutableList.builder();
         for (MultipartPart part : super.listMultipartUpload(mpu)) {
             builder.add(MultipartPart.create(part.partNumber(), 0,
-                    part.partETag(), part.lastModified()));
+                    part.partETag()));
         }
         return builder.build();
     }
