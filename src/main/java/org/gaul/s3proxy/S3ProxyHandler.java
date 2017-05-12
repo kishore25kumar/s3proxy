@@ -1440,8 +1440,8 @@ public class S3ProxyHandler {
         addMetadataToResponse(request, response, metadata);
     }
 
-    private void handleGetBlob(HttpServletRequest request,
-            HttpServletResponse response, BlobStore blobStore,
+    private void handleGetBlob(final HttpServletRequest request,
+            final HttpServletResponse response, BlobStore blobStore,
             String containerName, String blobName)
             throws IOException, S3Exception {
         int status = HttpServletResponse.SC_OK;
@@ -1486,38 +1486,55 @@ public class S3ProxyHandler {
             status = HttpServletResponse.SC_PARTIAL_CONTENT;
         }
 
-        Blob blob;
         try {
-            blob = blobStore.getBlob(containerName, blobName, options);
+            ListenableFuture<Blob> future =
+                    blobStore.getContext()
+                            .getAsyncBlobStore()
+                            .get()
+                            .getBlob(containerName, blobName, options);
+            final int finalStatus = status;
+            Futures.addCallback(future, new FutureCallback<Blob>() {
+                @Override
+                public void onSuccess(Blob result) {
+                    logger.info("Async get success");
+                    response.setStatus(finalStatus);
+
+                    if (corsAllowAll) {
+                        response.addHeader(
+                                HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+                    }
+
+                    addMetadataToResponse(request,
+                            response, result.getMetadata());
+                    // TODO: handles only a single range due to jclouds
+                    // limitations
+                    Collection<String> contentRanges =
+                            result.getAllHeaders()
+                                    .get(HttpHeaders.CONTENT_RANGE);
+                    if (!contentRanges.isEmpty()) {
+                        response.addHeader(HttpHeaders.CONTENT_RANGE,
+                                contentRanges.iterator().next());
+                        response.addHeader(HttpHeaders.ACCEPT_RANGES,
+                                "bytes");
+                    }
+
+                    try (InputStream is = result.getPayload().openStream();
+                         OutputStream os = response.getOutputStream()) {
+                        ByteStreams.copy(is, os);
+                        os.flush();
+                    } catch (IOException e) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                    response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                }
+            });
         } catch (IllegalArgumentException iae) {
             // TODO: correct mapping?
             throw new S3Exception(S3ErrorCode.INVALID_RANGE, iae);
-        }
-        if (blob == null) {
-            throw new S3Exception(S3ErrorCode.NO_SUCH_KEY);
-        }
-
-        response.setStatus(status);
-
-        if (corsAllowAll) {
-            response.addHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
-        }
-
-        addMetadataToResponse(request, response, blob.getMetadata());
-        // TODO: handles only a single range due to jclouds limitations
-        Collection<String> contentRanges =
-                blob.getAllHeaders().get(HttpHeaders.CONTENT_RANGE);
-        if (!contentRanges.isEmpty()) {
-            response.addHeader(HttpHeaders.CONTENT_RANGE,
-                    contentRanges.iterator().next());
-            response.addHeader(HttpHeaders.ACCEPT_RANGES,
-                    "bytes");
-        }
-
-        try (InputStream is = blob.getPayload().openStream();
-             OutputStream os = response.getOutputStream()) {
-            ByteStreams.copy(is, os);
-            os.flush();
         }
     }
 
