@@ -1441,7 +1441,8 @@ public class S3ProxyHandler {
     }
 
     private void handleGetBlob(final HttpServletRequest request,
-                               final HttpServletResponse response, BlobStore blobStore,
+                               final HttpServletResponse response,
+                               BlobStore blobStore,
                                final String containerName, String blobName)
             throws IOException, S3Exception {
         int status = HttpServletResponse.SC_OK;
@@ -1500,6 +1501,11 @@ public class S3ProxyHandler {
             Futures.addCallback(future, new FutureCallback<Blob>() {
                 @Override
                 public void onSuccess(Blob result) {
+                    if (result == null) {
+                        response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        return;
+                    }
+                    
                     logger.info("Async get success");
                     response.setStatus(finalStatus);
 
