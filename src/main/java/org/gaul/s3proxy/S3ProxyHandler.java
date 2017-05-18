@@ -1481,6 +1481,7 @@ public class S3ProxyHandler {
             status = HttpServletResponse.SC_PARTIAL_CONTENT;
         }
 
+        logger.info("Async Get Andrew");
         Blob blob;
         try {
             blob = blobStore.getBlob(containerName, blobName, options);
@@ -1491,6 +1492,8 @@ public class S3ProxyHandler {
         if (blob == null) {
             throw new S3Exception(S3ErrorCode.NO_SUCH_KEY);
         }
+
+        logger.info("Async Get Success");
 
         response.setStatus(status);
 
@@ -1508,7 +1511,6 @@ public class S3ProxyHandler {
             response.addHeader(HttpHeaders.ACCEPT_RANGES,
                     "bytes");
         }
-
         InputStream is = blob.getPayload().openStream();
         ServletOutputStream sos = response.getOutputStream();
         AsyncContext async = request.startAsync(request, response);
