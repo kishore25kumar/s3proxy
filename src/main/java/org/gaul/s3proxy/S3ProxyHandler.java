@@ -1505,7 +1505,6 @@ public class S3ProxyHandler {
                         response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                         return;
                     }
-                    
                     logger.info("Async get success");
                     response.setStatus(finalStatus);
 
