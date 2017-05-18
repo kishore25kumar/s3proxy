@@ -1441,8 +1441,8 @@ public class S3ProxyHandler {
     }
 
     private void handleGetBlob(final HttpServletRequest request,
-            final HttpServletResponse response, BlobStore blobStore,
-            String containerName, String blobName)
+                               final HttpServletResponse response, BlobStore blobStore,
+                               final String containerName, String blobName)
             throws IOException, S3Exception {
         int status = HttpServletResponse.SC_OK;
         GetOptions options = new GetOptions();
@@ -1487,6 +1487,10 @@ public class S3ProxyHandler {
         }
 
         try {
+            logger.info("Async Get Kishore");
+            final Continuation continuation =
+                    ContinuationSupport.getContinuation(request);
+            continuation.suspend();
             ListenableFuture<Blob> future =
                     blobStore.getContext()
                             .getAsyncBlobStore()
@@ -1525,11 +1529,14 @@ public class S3ProxyHandler {
                     } catch (IOException e) {
                         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                     }
+
+                    continuation.complete();
                 }
 
                 @Override
                 public void onFailure(Throwable t) {
                     response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                    continuation.complete();
                 }
             });
         } catch (IllegalArgumentException iae) {
@@ -1747,6 +1754,7 @@ public class S3ProxyHandler {
             logger.info("Async put");
             final Continuation continuation =
                     ContinuationSupport.getContinuation(request);
+            continuation.suspend();
             final BlobBuilder.PayloadBlobBuilder buildFinal = builder;
             ListenableFuture<String> future
                     = blobStore.getContext().getAsyncBlobStore()
@@ -1769,7 +1777,6 @@ public class S3ProxyHandler {
                     }
                 }
             });
-            continuation.suspend();
         } catch (HttpResponseException hre) {
             HttpResponse hr = hre.getResponse();
             if (hr == null) {
